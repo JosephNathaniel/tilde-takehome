@@ -1,0 +1,252 @@
+Metadata-Version: 2.4
+Name: kvcash
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: <3.12,>=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: accelerate==1.1.1
+Requires-Dist: aiohappyeyeballs==2.4.3
+Requires-Dist: aiohttp==3.11.7
+Requires-Dist: aiosignal==1.3.1
+Requires-Dist: asttokens==2.4.1
+Requires-Dist: attrs==24.2.0
+Requires-Dist: beautifulsoup4==4.12.3
+Requires-Dist: bert-score==0.3.13
+Requires-Dist: blessed==1.20.0
+Requires-Dist: bs4==0.0.2
+Requires-Dist: cachetools==5.5.0
+Requires-Dist: certifi==2024.8.30
+Requires-Dist: charset-normalizer==3.4.0
+Requires-Dist: click==8.1.7
+Requires-Dist: comm==0.2.2
+Requires-Dist: contourpy==1.3.1
+Requires-Dist: cycler==0.12.1
+Requires-Dist: datasets==2.21.0
+Requires-Dist: debugpy==1.8.9
+Requires-Dist: decorator==5.1.1
+Requires-Dist: dill==0.3.8
+Requires-Dist: einops==0.8.0
+Requires-Dist: executing==2.1.0
+Requires-Dist: filelock==3.16.1
+Requires-Dist: fire==0.6.0
+Requires-Dist: flash-attn==2.7.0.post2
+Requires-Dist: fonttools==4.55.0
+Requires-Dist: frozenlist==1.5.0
+Requires-Dist: fsspec==2024.6.1
+Requires-Dist: gpustat==1.1.1
+Requires-Dist: huggingface-hub==0.26.2
+Requires-Dist: idna==3.10
+Requires-Dist: ipykernel==6.29.5
+Requires-Dist: ipython==8.29.0
+Requires-Dist: jedi==0.19.2
+Requires-Dist: jinja2==3.1.4
+Requires-Dist: joblib==1.4.2
+Requires-Dist: jupyter-client==8.6.3
+Requires-Dist: jupyter-core==5.7.2
+Requires-Dist: kiwisolver==1.4.7
+Requires-Dist: lm-eval
+Requires-Dist: markupsafe==3.0.2
+Requires-Dist: matplotlib==3.9.2
+Requires-Dist: matplotlib-inline==0.1.7
+Requires-Dist: mpmath==1.3.0
+Requires-Dist: multidict==6.1.0
+Requires-Dist: multiprocess==0.70.16
+Requires-Dist: nest-asyncio==1.6.0
+Requires-Dist: networkx==3.4.2
+Requires-Dist: nltk==3.9.1
+Requires-Dist: numpy==2.1.3
+Requires-Dist: nvidia-cublas-cu12==12.4.5.8
+Requires-Dist: nvidia-cuda-cupti-cu12==12.4.127
+Requires-Dist: nvidia-cuda-nvrtc-cu12==12.4.127
+Requires-Dist: nvidia-cuda-runtime-cu12==12.4.127
+Requires-Dist: nvidia-cudnn-cu12==9.1.0.70
+Requires-Dist: nvidia-cufft-cu12==11.2.1.3
+Requires-Dist: nvidia-curand-cu12==10.3.5.147
+Requires-Dist: nvidia-cusolver-cu12==11.6.1.9
+Requires-Dist: nvidia-cusparse-cu12==12.3.1.170
+Requires-Dist: nvidia-ml-py==12.535.161
+Requires-Dist: nvidia-nccl-cu12==2.21.5
+Requires-Dist: nvidia-nvjitlink-cu12==12.4.127
+Requires-Dist: nvidia-nvtx-cu12==12.4.127
+Requires-Dist: nvitop==1.3.2
+Requires-Dist: packaging==24.2
+Requires-Dist: pandas==2.2.3
+Requires-Dist: parso==0.8.4
+Requires-Dist: pexpect==4.9.0
+Requires-Dist: pillow==11.0.0
+Requires-Dist: platformdirs==4.3.6
+Requires-Dist: prompt-toolkit==3.0.48
+Requires-Dist: propcache==0.2.0
+Requires-Dist: protobuf==5.28.3
+Requires-Dist: psutil==6.1.0
+Requires-Dist: ptyprocess==0.7.0
+Requires-Dist: pure-eval==0.2.3
+Requires-Dist: pyarrow==18.0.0
+Requires-Dist: pygments==2.18.0
+Requires-Dist: pyparsing==3.2.0
+Requires-Dist: python-dateutil==2.9.0.post0
+Requires-Dist: pytz==2024.2
+Requires-Dist: pyyaml==6.0.2
+Requires-Dist: pyzmq==26.2.0
+Requires-Dist: regex==2024.11.6
+Requires-Dist: requests==2.32.3
+Requires-Dist: rouge==1.0.1
+Requires-Dist: safetensors==0.4.5
+Requires-Dist: scipy==1.14.1
+Requires-Dist: seaborn==0.13.2
+Requires-Dist: sentencepiece==0.2.0
+Requires-Dist: setuptools>=78.1.0
+Requires-Dist: six==1.16.0
+Requires-Dist: soupsieve==2.6
+Requires-Dist: stack-data==0.6.3
+Requires-Dist: sympy==1.13.1
+Requires-Dist: termcolor==2.5.0
+Requires-Dist: tokenizers==0.21.0
+Requires-Dist: torch==2.5.1
+Requires-Dist: tornado==6.4.2
+Requires-Dist: tqdm==4.67.0
+Requires-Dist: traitlets==5.14.3
+Requires-Dist: transformers==4.48.3
+Requires-Dist: triton==3.1.0
+Requires-Dist: typing-extensions==4.12.2
+Requires-Dist: tzdata==2024.2
+Requires-Dist: urllib3==2.2.3
+Requires-Dist: wcwidth==0.2.13
+Requires-Dist: wheel>=0.45.1
+Requires-Dist: xxhash==3.5.0
+Requires-Dist: yarl==1.18.0
+
+# Q-Filters: Leveraging Query-Key Geometry for Efficient Key-Value Cache Compression
+
+[![arXiv](https://img.shields.io/badge/arXiv-2503.02812-b31b1b.svg)](https://arxiv.org/abs/2503.02812)
+
+<p align="center">
+  <img width=50% height=auto src="qfilters_demo.gif" />
+</p>
+
+
+> **Abstract**: Autoregressive language models rely on a Key-Value (KV) Cache, which avoids re-computing past hidden states during generation, making it faster. As model sizes and context lengths grow, the KV cache becomes a significant memory bottleneck, which calls for compression methods that limit its size during generation. In this paper, we discover surprising properties of Query (Q) and Key (K) vectors that allow us to efficiently approximate attention scores without computing the attention maps. We propose Q-Filters, a training-free KV cache compression method that filters out less crucial Key-Value pairs based on a single context-agnostic projection. Contrarily to many alternatives, Q-Filters is compatible with FlashAttention, as it does not require direct access to attention weights. Experimental results in long-context settings demonstrate that Q-Filters is competitive with attention-based compression methods such as SnapKV in retrieval tasks while consistently outperforming efficient compression schemes such as Streaming-LLM in generation setups. Notably, Q-Filters achieves a 99% accuracy in the needle-in-a-haystack task with a x32 compression level while reducing the generation perplexity drop by up to 65% in text generation compared to Streaming-LLM.
+
+## Project Components
+
+This repository contains several components:
+
+- **Core Q-Filters Implementation**: Implementation of the Q-Filters method for KV cache compression.
+- **Model Integration**: Support for integrating Q-Filters with various models.
+- **Evaluation Framework**: Integration with the lm-evaluation-harness for benchmarking.
+
+## Setup
+1. Install required libraries in a virtual environment:
+```bash
+python -m virtualenv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+2. Configure HuggingFace's environment:
+```bash
+export HF_DATASETS_CACHE=<path_to_hf_cache>
+export HF_HOME=<path_to_hf_cache>
+export HF_TOKEN=<hf_token>
+```
+
+## Generate with Q-Filters
+Here is an example of how to use Q-Filters in a generation setup:
+```python
+from transformers import AutoTokenizer, AutoModelForCausalLM, TextStreamer
+from src.hf_cache import QFiltersCache
+from datasets import load_dataset
+
+model_name = "deepseek-ai/DeepSeek-R1-Distill-Llama-8B"
+model = AutoModelForCausalLM.from_pretrained(
+    model_name, 
+    device_map="auto",
+    low_cpu_mem_usage=True,
+    torch_dtype="bfloat16"
+)
+
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+streamer = TextStreamer(tokenizer)
+
+question = """What is the probability of two integers selected at random having a greatest common divisor of 1."""
+input_text = f"<|User|>{question}<|Assistant|><think>\n"
+
+inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
+
+past_key_values = QFiltersCache(
+    window_length=64,
+    max_length=128, 
+    model_name=model_name
+)
+
+out = model.generate(
+    **inputs,
+    do_sample=True, 
+    temperature=0.5, 
+    max_new_tokens=4096, 
+    past_key_values=past_key_values, 
+    streamer=streamer
+)
+```
+
+## Compute Q-Filters for a new model
+1. Verify that the target model does not already have [pre-computed Q-Filters](https://huggingface.co/collections/nthngdy/q-filters-67a4994dcb302a3d37f3d119).
+2. Use the `make_filters.py` script to generate the filters. For instance:
+```bash
+python make_filters.py \
+--model_name deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B \
+--model_cls Qwen2ForCausalLM \
+--max_seq_len 2048 \
+--num_sequences 10 \
+--num_svd_samples 3000 \
+--dataset_name PatrickHaller/fineweb-1B \
+--save_mode disk \
+# --save_mode hub \
+# --save_mode hub+disk \
+# --hf_user_id nthngdy \
+--save_dir ../filters
+```
+3. For Q-Filters saved on disk, you can upload them later using this command:
+```bash
+huggingface-cli upload path_to_hf_repo path_to_local_qfilters .
+```
+
+## Benchmarking with RULER
+
+This repository includes an integration with the [Language Model Evaluation Harness](https://github.com/EleutherAI/lm-evaluation-harness) for benchmarking Q-Filters and other KV cache compression methods on the RULER benchmark.
+
+### Setup for Evaluation
+
+1. Initialize the lm-evaluation-harness submodule:
+```bash
+git submodule update --init --recursive
+```
+
+2. Install the evaluation harness with RULER benchmark support:
+```bash
+cd lm-evaluation-harness
+pip install -e ".[ruler]"
+cd ..
+```
+
+### Running Evaluations
+
+Use the provided evaluation scripts to run RULER benchmark evaluations:
+
+```bash
+./scripts/evaluate_ruler.sh --model meta-llama/Llama-2-7b-hf --q_filters --ratio 8
+```
+
+For more details on evaluation options, see the documentation in the `scripts/` directory.
+
+## Citation
+```bibtex
+@misc{godey2025qfiltersleveragingqkgeometry,
+      title={Q-Filters: Leveraging QK Geometry for Efficient KV Cache Compression}, 
+      author={Nathan Godey and Alessio Devoto and Yu Zhao and Simone Scardapane and Pasquale Minervini and Éric de la Clergerie and Benoît Sagot},
+      year={2025},
+      eprint={2503.02812},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2503.02812}, 
+}
+```

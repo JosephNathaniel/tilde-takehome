@@ -1,0 +1,685 @@
+CLAUDE CODING PROMPT
+
+You are a powerful, expressive, helpful, and honest coding assistant. We will engage in a pair programming task of a difficult and complex program spec. Abide by the following constitution:
+
+1. Prioritize correctness: Always ensure correctness of your code through self-reflection and analysis. Do not hallucinate.
+2. Embrace uncertainty: When unsure about a specific design decision or aspect of the spec, pause to think and engage with the user with follow-up question. You can and should also make asks of the user, such as showing a particualr file, paper, website, etc.
+3. Follow best practices: Document your code and follow general best practices for clean implementaton.
+4. Use Occam's surgical razor: Implement the minimal set of edits that is complete at each turn - do not write too much code beyond what is required and start with the simplest variation of the code that can easily be expanded into more complex variants (forward compatible).
+5. Backtrack: Don't be afraid to recognize mistakes and backtrack, adjusting code along the way. 
+6. Think deeply, creatively, and expressively: Spend the majority of your time thinking instead of writing code. Your thought process should be principled.
+7. Pay attention: Contexts will get long and its easy to lose track of codebase structure or changes you have made. Spend extra tokens at the start of each prompt reflecting, calling tools, and managing memory as necessary.
+8. Maintain rigor: Often your engineering implementation will be grounded in parts of papers presented in context - ensure your implementation aligns with the spec and methodology in the paper but also critically analyze where it should diverge. Don't hesitate to ask the user if you are unsure in a specific case.
+9. Enagge with user demands: If the user needs help with a specific request usch as debugging, assist them but also do not forget the overall implementation plan you have conceived. When you are done with the small divergence from the user, revert back to your plan on the next turn.
+
+
+Your project for this round is titled: Enhancing Q-Filters
+
+The project's status is IN PROGRESS
+
+Your role is BUILD FROM GROUP UP/INCREMENTAL FEATURE ADDITION/DEBUGGING/SPECULATIVE & PLANNING
+
+Here is a background on the project: You will be extending upon the Q-filters method for KV cache compression in transformers and building infrastructure to extend it. 
+
+Here is the spec for the project: 
+
+Q-filters ar ea novel mthod of rKV cache compression that is flash attention compatible and can allow for very large compression ratios without large performance gaps. Here is the full paper, please read it carefully:
+
+<PAPER>
+Q-Filters: Leveraging Query-Key Geometry
+for Efficient Key-Value Cache Compression
+Nathan Godey 1 2 Alessio Devoto 3 Yu Zhao 4 Simone Scardapane 3
+Pasquale Minervini 4 5 Éric de la Clergerie 2 Benoît Sagot 2
+§ github.com/NathanGodey/qfilters
+Abstract
+Autoregressive language models rely on a KeyValue (KV) Cache, which avoids re-computing
+past hidden states during generation, making it
+faster. As model sizes and context lengths grow,
+the KV Cache becomes a significant memory bottleneck, which calls for compression methods that
+limit its size during generation. In this paper, we
+discover surprising properties of Query (Q) and
+Key (K) vectors that allow us to efficiently approximate attention scores without computing the
+attention maps. We propose Q-Filters, a trainingfree KV Cache compression method that filters
+out less crucial Key-Value pairs based on a single context-agnostic projection. Contrarily to
+many alternatives, Q-Filters is compatible with
+FlashAttention, as it does not require direct access to attention weights. Experimental results in
+long-context settings demonstrate that Q-Filters
+is competitive with attention-based compression
+methods such as SnapKV in retrieval tasks while
+consistently outperforming efficient compression
+schemes such as Streaming-LLM in generation
+setups. Notably, Q-Filters achieves a 99% accuracy in the needle-in-a-haystack task with a ×32
+compression level while reducing the generation
+perplexity drop by up to 65% in text generation
+compared to Streaming-LLM.
+1. Introduction
+The performance of Large Language Models (LLMs) as
+autoregressive text-generation systems relies on the effectiveness of the Transformer architecture (Vaswani et al.,
+2017). Recently, long-context models such as Gemini-Pro1.5 (Reid et al., 2024), Claude-3 (Anthropic, 2024), GPT4 (Achiam et al., 2023), and Llama3.1 (Dubey et al., 2024)
+1Sorbonne Université, Paris, France 2Inria, Paris,
+France 3Sapienza University of Rome 4University of Edinburgh 5Miniml.AI. Correspondence to: Nathan Godey
+<nathan.godey@inria.fr>.5 6 7 8 9 10 11
+Time To First Token (s)
+30
+35
+40
+45
+50
+55
+60
+Ruler average score
+SnapKV
+Q-Filters (ours)
+Streaming-LLM
+Expected attention
+K-norm
+Figure 1: Accuracy vs Time to First Token (TTFT) tradeoff
+for Llama-3.1-70B-Instruct, measured on the Ruler dataset
+with ×8 compression. The TTFT is measured using 2 A100
+GPUs on 8192-tokens sequences.
+have demonstrated the ability to process hundreds of thousands of tokens. However, processing such long sequences
+comes with significant challenges, as it may lead to higher
+decoding latency and memory saturation. As the context
+length grows, each inference step involves storing an increasingly large context from GPU memory in the form of
+the KV Cache, creating a memory bottleneck that hinders
+efficient inference (Fu, 2024). To address this issue, KV
+Cache compression methods aim to reduce the size of this
+past-context representations storage by removing or merging
+Key-Value pairs, thereby alleviating memory bottlenecks.
+While KV Cache compression techniques have gained popularity, many approaches require fine-tuning or re-training the
+underlying models (Nawrot et al., 2024; Ainslie et al., 2023;
+DeepSeek-AI et al., 2024), which limits their applicability
+in real-world deployment scenarios. Training-free methods
+have also been proposed, but they often rely on access to
+attention weights to evaluate the importance of Key-Value
+pairs (Xiao et al., 2024; Li et al., 2024), making them incompatible with the widely adopted efficient attention algorithm
+FlashAttention (Dao, 2024). These methods usually require
+a partial re-computation of the attention matrices, which
+1
+arXiv:2503.02812v1 [cs.CL] 4 Mar 2025Q-Filters: Leveraging QK Geometry for Efficient KV Cache Compression
+(a) Layer 14, Head 5 (ε = −1) (b) Layer 31, Head 14 (ε = +1) (c) SVD absolute average coefficients
+Figure 2: Left and center: distributions of the projections of Qh and Kh on uh for Llama-3.1-8B. Right: estimates of
+Ei(⟨Qh
+i , vm⟩) where vm are the right vectors from the SVD of a set of Qh representations from different Llama models,
+averaged over all layers and heads.
+leads to a time and memory overhead. Hence, these algorithms are often used to compress prompts before generating
+answers and are not ideally suited for memory-constrained
+generation.
+In this work, we propose Q-Filters, a training-free KV Cache
+compression method that uses the geometric properties of
+Query-Key to filter out the less important Key-Value pairs.
+Our approach achieves competitive results across synthetic
+tasks and pure generation cases while maintaining compatibility with FlashAttention and, thus, better time efficiency.
+Analysing the properties of queries (Q) and Keys (K) distributions, we find that a single direction, spanned by the
+principal eigenvector of Q, encodes an input selection process for each head. Identifying this direction allows us to
+efficiently estimate which inputs are mostly ignored by a
+given head and can thus be discarded with minimal performance loss. Interestingly, we find that this direction is
+context-agnostic, i.e., the directions we identify in different
+contexts are highly consistent. Leveraging this property,
+we calculate lightweight projections, which we refer to as
+Q-Filters, based on a small held-out calibration dataset only
+once for every model, incurring minimal computational
+overhead. At inference time, we use Q-Filters to project
+Keys in the pre-computed direction to estimate the importance of Key-Value pairs without accessing attention scores,
+and we prune the KV Cache accordingly. This makes our
+method faster than most KV Cache compression alternatives
+that use attention scores to estimate the importance of the
+KV pairs.
+Additionally, our method is training-free, requiring only a
+very short initial calibration, and we show it can be easily
+applied to a variety of decoder-only language models. We
+validate our method on a wide set of tasks, ranging from
+language modelling to in-context learning and long-context
+tasks, achieving competitive performance even with 32x
+compression ratios.
+2. Background
+2.1. Key-Value Cache
+We first introduce the relevant notation for our analysis
+and the role of the KV Cache in efficient LLM inference.
+Consider a transformer model with a hidden dimension dm
+and nl layers, processing a sequence of length L. Each
+transformer layer processes the input sequence via MultiHead Self-Attention (MHA).
+In MHA, the model transforms the input features X ∈
+RL×dm into three distinct representations for each attention
+head h ∈ [1, H]. These representations, known as queries
+Qh, Keys Kh, and Values V h, each belong to RL×dh , where
+dH = dm/H represents the dimension per head, and h denotes the head index. The second step computes the attention output Oh for each head using the following equation:
+Oh = softmax
+ Qh(Kh)T
+√dH
+
+V h.
+In causal modelling, where the model generates text sequentially, we ensure that each token only attends to previous
+tokens and itself. This causality constraint means that when
+generating the t-th token, its output Oh
+t depends only on the
+current and previous inputs, as expressed by:
+Oh
+t = softmax Qh
+t (Kh
+≤t)T
+√dH
+!
+V h
+≤t.
+The Key and Value representations Kh
+≤t, V h
+≤t, which combine previous Keys and Values with the current ones
+Kh
+t , V h
+t , reuse information from previous generation steps.
+By storing these representations in a KV Cache during the
+generation process, we can avoid the computational cost
+of recalculating them at each step, thereby significantly improving efficiency at the cost of the memory occupied by
+stored KV pairs.
+2Q-Filters: Leveraging QK Geometry for Efficient KV Cache Compression
+(a) Layer 0, Head 21
+(b) Layer 13, Head 16
+Figure 3: Projection of Qh and Kh vectors in the first two
+components of the SVD of Qh for different heads in Llama3.2-1B. The colour on the K projections represents the
+log-average attention at the corresponding index for the
+current head. The x-axis and y-axis indicate the results of a
+projection of the representations on v1 and v2, respectively.
+However, this memory-compute tradeoff introduces a new
+challenge: as the context length grows, decoding latency
+increases due to the frequent transfers of large KV Cache
+states between high-bandwidth memory (HBM) and streaming multiprocessors (SM) (Fu, 2024). For this reason, KV
+Cache compression methods have become essential to allow
+inference in long contexts.
+2.2. Geometry of Multi-Head Attention
+In Devoto et al. (2024), the authors examined a relationship
+between basic characteristics of the Key representations
+and attention score distributions. Notably, they observe a
+negative correlation between the average attention weight
+given to a position and the L2-norm of the Kh
+t vector at
+that position. Leveraging this observation, they propose to
+compress the KV Cache by selecting the KV pairs for which
+||Kh
+t ||2 is the smallest. Using this simple heuristic, they
+are able to reach ×2 compression ratios without altering
+the retrieval and modelling performance of the models they
+study. In their paper, while they relate this approach to the
+well-known oulier dimension phenomenon (Kovaleva et al.,
+2021), they do not provide a grounded explanation as to the
+strength of the observed correlation.
+A promising path towards a better explanation of the L2-
+norm observation consists in systematically exploring the
+geometry of the representations involved in the attention
+score computation, namely Qh and Kh.
+Godey et al. (2024) show that the distributions of Qh
+t and
+Kh
+t are anisotropic, i.e. they do not uniformly occupy RdH .
+They observe that both distributions “drift away” from the
+origin as training progresses. Crucially, this drift occurs
+along parallel directions in RdH , so that the dot product
+between mean Qh
+t and mean Kh
+t representations tends to
+increase in absolute value, and to be either positive or negative for different heads. In the paper, it is argued that this
+drift could be linked to the sparsity of attention patterns, but
+the authors do not propose a clear interpretation of this phenomenon from the perspective of the attention mechanism.
+In this paper, we bridge the gap between the two aforementioned observations; namely, we explain the effectiveness
+of the L2-norm heuristic introduced in Devoto et al. (2024)
+by leveraging the (jointly) anisotropic nature of Query-Key
+representations, and we explore a stronger heuristic that
+exploits this finding to refine the L2-norm approximation
+by projecting Keys onto the drift directions, that we refer to
+as Q-Filters.
+3. Method
+3.1. Exploring the Query-Key Geometry
+Motivated by Devoto et al. (2024) and Godey et al. (2024),
+we propose to further explore some geometrical properties
+of Qh and Kh vectors and their implications for unnormalized attention logits Qh(Kh)T .
+First, we formalize the findings from Godey et al. (2024)
+into our theoretical framework. The authors shed light on
+the existence of a favored common normalized direction for
+both Qh and Kh distributions. We denote such direction
+as uh ∈ SdH −1 where SdH −1 is the dH -dimensional hypersphere (i.e. SdH −1 = {x ∈ RdH s.t. ||x||2 = 1}). As a
+consequence, the projection of Qh and Kh distributions on
+uh is usually non-null but can take opposite signs in Qh and
+Kh. Hence, we use ε = ±1 to account for the possible sign
+discrepancy and formulate the following Observation 3.1 in
+terms of expectation.
+Observation 3.1 (Joint anisotropy). There exist uh ∈
+SdH −1 and ε = ±1 such that
+E ⟨Qh
+i , uh⟩ > 0 and E ⟨Kh
+j , εuh⟩ > 0,
+3Q-Filters: Leveraging QK Geometry for Efficient KV Cache Compression
+Figure 4: Spearman rank correlation between KV compression scoring metrics and the observed attention Sh for
+Llama-3.2-1B, for K-norm (top) and Q-Filters (bottom).
+where ⟨·, ·⟩ denotes the dot product.
+To validate Observation 3.1, we compute the Singular Value
+Decomposition (SVD) of a set of Qh representations taken
+from various sequences for Llama-3.1-8B. We find that the
+first right-vector of the SVD verifies Observation 3.1 for
+all tested heads, and we display examples of projection distributions in Figures 2a and 2b. The intuitive consequence
+of this observation regarding attention weights is that, if
+a given Kh
+t has a strong projection along εuh, then future
+queries Qh
+≥t can be expected to have a stronger dot-product
+with Kh
+t in average.
+However, it is not clear a priori that this effect is unidirectional, i.e. that there exists a unique direction uh (up
+to a sign) that verifies Observation 3.1. Hence, identifying one such direction may not suffice to characterize the
+anisotropy of Qh representations and to derive estimations
+of the dot-products used in attention. The uni-directional
+nature of the Query-Key anisotropy can be formalized as in
+Observation 3.2.
+Observation 3.2. Let uh = arg maxu∈SdH −1 E ⟨Qh
+i , u⟩
+and B = (uh, u2, ..., udH ) an orthonormal basis of RdH .
+Then for all attention inputs X:
+∀m ∈ [2, dH ], E ⟨Qh
+i , um⟩ ≈ 0
+In Figure 2c, we observe that only the first singular component of the SVD of Qh representations carries an anisotropic
+behavior, as the projections on all other components have
+a null mean. Hence, by taking the SVD right-vector basis
+as B, we can show that the first component of the SVD
+empirically verifies Observation 3.2. This lets us derive
+a basic estimation for the average unnormalized attention
+logits ⟨Qh
+i , Kh
+j ⟩.
+Theorem 3.3 (proof in Appendix A). Under Observation 3.1 and Observation 3.2, we have:
+EQh
+i (⟨Qh
+i , Kh
+j ⟩) ≈ κh⟨Kh
+j , uh⟩
+where κh is a positive constant.
+Intuitively, projecting Kh
+t along the anisotropic direction
+uh gives us an estimate of the attention logits that involve
+Kh
+t up to a positive multiplicative constant κh.
+This result provides a justification for the method developed
+in Devoto et al. (2024). As a matter of fact, Observation 3.1
+implies that Ej
+cos(Kh
+j , uh) should have the same sign
+as ε. In practice, we observe ε = −1 for a vast majority of
+heads in trained causal LMs. Hence, we can derive a looser
+estimation from Theorem 3.3:
+Ei,X (⟨Qh
+i , Kh
+j ⟩) ≈ −κh Ej,X
+cos(Kh
+j , uh) ||Kh
+j ||2
+This estimation shows that the L2-norm of Kh
+j vectors is
+negatively correlated with the corresponding mean attention
+logits and can therefore be used to approximate them. However, only using the L2-norm to estimate the attention score
+as done in Devoto et al. (2024) is suboptimal, as it ignores
+the angular component of the ⟨Kh
+j , uh⟩ product. In practice,
+one can approximate uh as defined in Observation 3.2 using
+the SVD of concatenated representations Qh extracted by
+passing samples through the model. Formally, we collect
+a batch of Query activations Qh = {Qh
+1 , Qh
+2 , ..., Qh
+n} by
+passing documents sampled from pre-training corpora and
+using the right-vectors V as the orthonormal basis B:
+Qh = U ΣV ⊤, with V = (v1, v2, ..., vdH ) (1)
+The resulting v1 vectors are, up to a sign, what we refer to as
+Q-Filters, as they allow to estimate which Key-Value pairs
+are worth storing for each head along generation. Figure 3
+also displays information about attention levels for the corresponding indices. For a given input X, we measure the
+average attention at position t as:
+Sh
+t = 1
+L − t + 1
+LX
+i=t
+Ah
+it,
+4Q-Filters: Leveraging QK Geometry for Efficient KV Cache Compression
+where Ah is the attention map for head h. It appears clearly
+from Figure 3 that there exists a strong correlation between
+the average attention at a given index and the projection of
+Kh on the v1 component.
+We observe that the projection of Kh on the v1 component
+has a consistent sign for a given head, e.g., it is consistently
+positive in Figure 3a and consistently negative in Figure 3b,
+while the projection results on v2 have a near-zero expectation, further validating Observation 3.1 and Observation 3.2.
+3.2. Q-Filters
+Based on Theorem 3.3, we can design a KV Cache compression scheme that consists of the following steps:
+1. For a given model, retrieve its Q-Filters, which can be
+obtained with the following procedure:
+(a) Gather Qh representations by passing samples
+through the model;
+(b) Compute the SVD of the gathered representations
+at each layer and head;
+(c) Obtain the positive right vector (or Q-Filter) for
+each head v+
+1 = sgn(1uT
+1 )v1.
+2. At inference, for each head, discard the Kh
+t with the
+lowest ⟨Kh
+t , v+
+1 ⟩ value.
+In the case of Grouped-Query Attention or GQA (Ainslie
+et al., 2023), we simply average the Q-Filters for each group
+of Query representations.
+We bring the attention of the reader to the fact that this
+method only requires a single preparation step following
+training for a given model. The Q-Filters are entirely
+context-agnostic and rely on inherent properties of the Query
+and Key latent spaces. In the rest of this article, we use a
+subset of the Pile dataset (Gao et al., 2020) to compute the
+Q-Filters and discuss the choice of the dataset and of the
+number of necessary SVD samples in Section 4.1.
+In Figure 4, we observe that the Q-Filters heuristic is noticeably more correlated with the attention score Sh for most
+heads compared to the L2-norm metric. As such, ordering
+the Key-Value pairs using the Q-Filters heuristic should allow us to select more relevant pairs than using the method
+from Devoto et al. (2024) - that we will call K-norm for the
+sake of simplicity.
+4. Experiments
+We validate our method both on memory-constrained language modelling and on long-context retrieval tasks (e.g.
+needle-in-a-haystack). Additionally, we test our method on
+the Ruler dataset (Hsieh et al., 2024), which is specifically
+designed to test the model’s long context modelling abilities.
+We test Q-Filters on Llama-3.1-8B, Llama-3.1-70B (Dubey
+et al., 2024) and Qwen-2.5-7B (Qwen et al., 2025), but the
+method can be easily adapted to any pre-trained decoderonly LLM. We compare Q-Filters with several KV Cache
+compression methods. These include StreamingLLM (Xiao
+et al., 2024), which focuses on language modeling by always retaining the initial tokens of the sequence. We also
+compare with SnapKV (Li et al., 2024), which performs
+compression based on attention scores from the final portion
+of the prompt, making it particularly suitable for compression of large prompts. Additionally, we compare against
+preserving low-L2 norm tokens (Devoto et al., 2024) and
+the recent ExpectedAttention (Jegou & Jeblick, 2024).
+Language Modelling To evaluate the performance of QFilters in the language modelling setup, we perform generation on the Pile dataset (Gao et al., 2020). We let the
+KV Cache grow up until a certain threshold, after which
+we start evicting the KV pairs so that the total size never
+exceeds the maximum threshold. We measure performance
+by tracking the model perplexity computed on past tokens
+in 20 sequences. We report results for a maximum KV
+Cache size of 512 pairs in Figure 5. We observe that QFilters consistently achieves the lowest perplexity among
+compression schemes, even for very long contexts. This
+observation scales to the 70B model, where Q-Filters significantly reduces the perplexity gap. This improvement is
+more pronounced in the latter portions of the sequences, suggesting better retention of relevant contextual information.
+Needle in a Haystack The Needle-in-a-Haystack task embeds a key piece of information (the “needle”) within a long
+sequence of distractors (the “haystack”), followed by a question that requires retrieving the needle. This evaluates the
+model’s ability to handle long-range dependencies and tests
+how well KV Cache compression retains critical information. If important KV pairs are evicted, the model fails to
+answer correctly.
+We evaluate Q-Filters by placing the needle at depths from
+1k to 64k tokens and measuring retrieval accuracy. Similarly to (Devoto et al., 2024), we do not compress key-value
+pairs in the first two layers of the models in this experiment.
+As shown in Figure 6, Q-Filters outperforms K-Norm (Devoto et al., 2024), preserving crucial information even in
+extremely long contexts.
+Ruler Tasks We evaluate the proposed method on the
+Ruler dataset (Hsieh et al., 2024), which comprises several sub-tasks that test the model long context modelling
+abilities, including Multi-hop Tracing, Long Context Aggregation, Long Context Retrieval and Question Answer5Q-Filters: Leveraging QK Geometry for Efficient KV Cache Compression
+Figure 5: Generation performance for a KV Cache size
+limited to 512 items for Llama-3.1-8B (top) and Llama-3.170B (bottom).
+ing. The dataset offers 3 variants with different sequence
+lengths: 4096, 8192, and 16384. We compare the score on
+Ruler with several other KV Cache compression methods
+and show average results in Figure 7a. We report detailed
+per-task results in Table 1 and in Appendix C. We test the
+model’s score for several compression factors ranging from
+2× to 32×. While for some lower compression factors,
+we find performance on par with other methods, Q-Filters
+achieve the highest score with the strongest compression
+factor of 32×, demonstrating the method’s effectiveness at
+high compression rates.
+4.1. Robustness of the Calibration Dataset
+In Figure 8, we analyse how the calibration dataset size
+impacts the performance of our Q-Filters computation. Our
+experimental results demonstrate that increasing the number
+of samples in the calibration dataset leads to an improvement in average perplexity, although the marginal benefits
+diminish beyond a certain point, namely around 1k samples.
+This suggests that while larger calibration datasets generally produce more robust Q-Filters, there exists a practical
+trade-off balancing computational cost and performance
+(a) K-norm (average accuracy: 63%)
+(b) Q-filters (average accuracy: 91%)
+Figure 6: Needle-in-a-haystack performance for Llama-3.18B using 64x KV Cache compression.
+benefits. Based on these empirical findings and computational efficiency considerations, we standardized our experimental protocol to utilize 3,000 samples for computing the
+Q-Filters across all subsequent experiments. Another important consideration in the development of robust Q-Filters
+is the choice of calibration dataset. To investigate this aspect, we conducted a systematic analysis using multiple
+diverse datasets and model versions in Figure 9. Our experiments revealed that the Q-Filter vectors exhibit remarkable
+stability across different calibration datasets, with a high
+average cosine similarity between vectors computed from
+distinct sources. This finding suggests that our method is
+relatively insensitive to the specific choice of calibration
+data, provided it maintains sufficient diversity and quality.
+Based on these results, we opted to use a carefully curated
+subset of the Pile dataset (Gao et al., 2020) for all Q-Filter
+computations.
+4.2. Q-Filters Estimation Overhead
+It could be argued that our method introduces a memory
+overhead as we need to store the Q-Filters on-device. Nevertheless, for a model using l layers and nH heads, storing
+the Q-Filters requires l × nH × dH parameters. For Llama6Q-Filters: Leveraging QK Geometry for Efficient KV Cache Compression
+Compression method FA-compatible CWE FWE Multi-Key Multi-Query Multi-Value Single QA VT Average
+SnapKV ✗ 88.7 89.0 15.1 29.6 28.8 68.7 42.8 83.2 50.5
+Expected Attention ✗ 70.0 79.3 12.0 59.7 37.8 31.2 44.2 96.3 43.2
+Streaming-LLM ✓ 53.8 93.4 14.1 16.8 16.7 15.7 62.3 15.8 31.6
+K-Norm ✓ 22.9 74.8 8.7 16.6 25.8 55.9 20.6 32.0 31.3
+Q-Filters (ours) ✓ 82.5 80.2 22.9 49.1 60.6 71.1 37.6 100 56.1
+Table 1: Results on the Ruler-4096 dataset for Llama-3.1-70B-Instruct with an 8× compression ratio. The second column
+indicates compatibility with FlashAttention.
+(a) Average performance on Ruler (8192)
+(b) Average performance on Loogle (Short Dependency QA)
+Figure 7: Average score for different long-context benchmarks using Llama-3.1-8b with different methods and compression ratios
+3.2-1B, this is 36k× smaller than the total parameter count
+and 196k× smaller in the case of Llama-3.2-405B. Another
+source of overhead could be attributed to the initial computation of the filters that are required for every new model.
+We find that passing 20 samples of length 2048 through
+the model and performing the SVD on 3k randomly sampled representations for each head is sufficient to obtain
+strong performance. In our experiments with Llama-3.270B, computing the filters took less than 3 minutes on two
+A100-80GB GPUs. This cost is thus negligible when compared with the cost of inference.101 102 103
+SVD samples
+1.934
+1.936
+1.938
+1.940
+1.942
+1.944
+1.946
+Final perplexity
+Figure 8: Perplexity after 1024 tokens for Q-Filters obtained
+using different sizes of Qh (Eq. (1)) to calculate the SVD.
+4.3. Throughput and Scalability
+In this section, we analyze the time and memory overhead
+induced by the Q-Filters method. Our approach is more
+efficient than many KV Cache compression methods, as it
+estimates the relevance of a Kh representation without materializing the attention maps. This property makes it compatible with memory-efficient self-attention implementations
+such as FlashAttention (Dao, 2024). During inference, QFilters maintains the same theoretical time complexity as
+the K-norm method (Devoto et al., 2024), since computing
+a norm and a scalar product require a comparable number
+of floating-point operations.
+By avoiding the explicit computation of attention scores,
+our method achieves lower inference latency compared to
+existing approaches. To quantify this efficiency, we measure the Time to First Token across different methods in
+Figure 10. Time to First Token (TTFT) refers to the latency
+between submitting a prompt and receiving the first generated token. This metric is particularly relevant in scenarios
+where fast response times are critical, such as interactive
+AI applications. Compressing the KV Cache directly impacts TTFT: by reducing the memory footprint of the KV
+Cache, it allows a larger portion of the prompt context to fit
+within fast-access memory, minimizing memory swapping
+overhead. As a result, compression techniques that efficiently manage the KV Cache should significantly reduce
+7Q-Filters: Leveraging QK Geometry for Efficient KV Cache CompressionRaw modelInstruct model
+Instruct modelRaw model
+Figure 9: Cosine-similarity between Q-Filters computed
+on datasets coming from different domains and languages
+and on pre-trained and post-trained models. The scores are
+averaged over all layers and heads.1.33 2 4 8 16 32
+Compression factor
+102
+103
+Time to first token (ms)
+Q-Filters (ours)
+SnapKV
+Streaming-LLM
+Expected attention
+Low L2-norm
+Figure 10: First token latency across KV Cache compression
+methods of Llama-3.2-8B with a length of 64k prompt.
+initial response latency. Notably, our experiments show that
+Q-Filters maintain this performance advantage even as the
+sequence length increases, suggesting better scalability compared to methods that require explicit attention computation.
+5. Limitations
+In Appendix B, we run generation experiments on Qwen2.5-7B-Instruct (Qwen et al., 2025), and we observe that,
+although the results still favour the Q-Filters method, the
+gap is less clear compared to the Llama models. Our main
+hypothesis for this discrepancy lies in the slightly different
+attention mechanism used in Qwen-2.5 suite, which adds
+a bias to the QKV projection. Hence, it is likely that the
+geometrical observations made in Section 3 are not accurate
+in that case. Similarly, initial experiments with Olmo-2
+models (OLMo et al., 2025) were unsuccessful, which can
+be explained by their use of the QK-normalization technique
+(Dehghani et al., 2023). These different tricks would most
+likely require an adaptation of our analysis to yield a better
+approximation of the attention distributions.
+6. Related Works
+After the success of long-context models (Reid et al., 2024;
+Anthropic, 2024; Achiam et al., 2023), compressing the KV
+Cache has become a key research focus to enable processing
+of long-context inputs.
+Some methods reduce the KV Cache size by modifying the
+model architecture. For example, Ainslie et al. (2023) and
+Shazeer (2019) reuse the same Keys for multiple queries,
+thereby reducing redundancy in storage. Nawrot et al.
+(2024) propose a dynamic token-merging strategy, learning
+which KV pairs to merge. While these approaches achieve
+significant compression, they require training or fine-tuning,
+making them less practical in real-world scenarios where
+retraining the model from scratch is not feasible. In contrast, our method requires only a short, computationally
+inexpensive calibration step, avoiding parameter updates
+entirely. Recently DeepSeek-AI et al. (2024) introduced a
+Multi-Head Latent Attention, a modification to the standard
+attention mechanism that performs a low-rank reduction of
+the KV Cache during pre-training.
+Training-free approaches aim to compress the KV Cache
+without modifying the model, typically by approximating
+the attention score over long sequences and prioritizing
+tokens with higher importance. Among these, Xiao et al.
+(2024) focus on language modelling tasks and propose always retaining the first token(s) (as an attention sink) and the
+last n tokens in a sliding window. Also, Zhang et al. (2024)
+focuses on generation tasks and introduces a policy that
+evicts tokens during generation based on a scoring function
+derived from cumulative attention. In contrast, other works
+focus on the task of compressing a large prompt provided
+by the user. Li et al. (2024) uses attention from the last part
+of the prompt to estimate KV pairs importance. With the
+same goal, Cai et al. (2024) assigns more cache budget to
+lower layers and less to higher layers. Finally, Guo et al.
+(2024) proposes to rescale the KV score of other methods
+by the L1 norm of the Values.
+In contrast, our approach is not tailored to a specific use
+case but provides competitive performance across both synthetic tasks and real-world scenarios, including in-context
+learning and chat-based interactions. Additionally, many of
+these approaches are incompatible with FlashAttention Dao
+(2024) due to their reliance on accessing the full attention
+weights, which FlashAttention does not expose.
+8Q-Filters: Leveraging QK Geometry for Efficient KV Cache Compression
+7. Conclusion
+We introduced Q-Filters, a novel training-free method for
+KV Cache compression. We show that projecting the Key
+representations on the main SVD component of the Query
+vectors results in an accurate approximation of the attention
+scores. Q-Filters is extremely efficient and is compatible
+with FlashAttention as it does not require accessing the attention scores. We validated our method on several tasks
+(Language modelling, NIAH, Ruler) and models up to 70B
+parameters, and showed competitive performance with respect to more costly state-of-the-art KV Cache compression
+methods.
+8. Impact Statement
+This paper introduces Q-Filters, a training-free technique
+for compressing the Key-Value cache in large language
+models by exploiting the geometry of Query and Key vectors. By discarding less important representations through
+a single projection direction, Q-filters substantially reduce
+memory usage while preserving performance across long
+contexts. Crucially, it remains compatible with memoryefficient attention mechanisms, facilitating practical adoption in real-world scenarios. This advancement addresses
+pressing scalability and latency challenges and offers a fresh
+perspective on harnessing geometrical insights to develop
+more efficient language modelling strategies.
+9. Acknowledgements
+This collaboration was made possible by my academic visit
+to Prof. Edoardo Ponti’s lab at the University of Edinburgh.
+I express my sincere gratitude to Prof. Ponti for this opportunity and for our exciting discussions.
+This work was funded by the last author’s chair in the
+PRAIRIE institute funded by the French national agency
+ANR as part of the “Investissements d’avenir” programme
+under the reference ANR-19-P3IA-0001.
+This work was granted access to the HPC resources of
+IDRIS under the allocation 2024-AD011013680R2 made
+by GENCI.
+
+A. Proof of Theorem 3.3
+We begin the proof by writing ⟨Qh
+i , Kh
+j ⟩ in the basis B:
+EQh
+i (⟨Qh
+i , k⟩) = EQh
+i (⟨Qh
+i , uh⟩)⟨k, uh⟩
++
+dhX
+m=2
+EQh
+i (⟨Qh
+i , um⟩)⟨k, um⟩
+Observation 3.2 states that Ei,X (⟨Qh
+i , um⟩) ≈ 0, which lets
+us do the following approximation:
+dhX
+m=2
+EQh
+i (⟨Qh
+i , um⟩)⟨k, um⟩ ≈ 0
+By combining Observation 3.1 and Observation 3.2, we also
+have that:
+EQh
+i (⟨Qh
+i , uh⟩) > 0
+We conclude the proof by setting κh = EQh
+i (⟨Qh
+i , uh⟩).
+B. Generation Results
+We compute the final perplexity of Llama-3.1-70B in the
+memory-constrained setup for various compression factors
+and methods.
+Figure 11: Final perplexity after 512 tokens for Llama-3.170B in the memory-constrained generation scenario.
+We also run a study similar to the one conducted in Figure 5
+with Qwen-2.5-7B-Instruct, which we display in Figure 12,
+and with Llama-3.2-1B, which we display in Figure 13.
+C. Ruler Results
+In Figure 14 we report detailed evaluation on the subsets of
+the Ruler dataset Hsieh et al. (2024).
+D. Generation examples
+Using Llama-3.1-8B, we identify interesting cases where
+Q-Filters provide the correct next token in a given long
+Figure 12: Perplexity of the Qwen-2.5-7B-Instruct model
+along generation.
+Figure 13: Perplexity of the Llama-3.2-1B model along
+generation.
+context, while K-norm and Streaming-LLM fail to capture
+the relevant information.
+E. Implementation Details
+For all our experiments, we use the popular Huggingface
+models with the recently released KVPress library (Jegou &
+Jeblick, 2024).
+12Q-Filters: Leveraging QK Geometry for Efficient KV Cache Compression
+(a) Variable tracking (b) NIAH - single (1) (c) NIAH - single (2)
+(d) NIAH - single (3) (e) NIAH - Multi-key (1) (f) NIAH - Multi-key (2)
+(g) NIAH - Multi-key (3) (h) NIAH - Multi-Value (i) NIAH - Multi-Query
+(j) Frequent Words Extraction (FWE) (k) Common Words Extraction (CWE)
+Figure 14: Performance of Llama-3.1-8B-Instruct using several KV Cache compression methods on individual tasks from
+the Ruler dataset (with length 8192) as compression ratio evolves. We report prompt compression methods using dotted
+lines for comparison.
+</PAPER>
+
+Please ensure you have read and memorized the paper throoughly. The user will provide the initial implementation goals in the first context window. This will determine your focus.
+
+Please spend this turn reflecting on the above consitution and planning. Starting on the next turn, you will have to fully behave as per the above constitution without fail. 
