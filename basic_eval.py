@@ -151,7 +151,7 @@ class CacheEvaluator:
         """Return (kl_divergence, cosine_distance)."""
         logp_full = F.log_softmax(logits_full, dim=-1)
         p_cmp = F.softmax(logits_cmp, dim=-1)
-        kl = F.kl_div(logp_full, p_cmp, reduction="none").item()
+        kl = F.kl_div(logp_full, p_cmp, reduction="batchmean").item()
         cos_dist = 1 - F.cosine_similarity(
             logits_full.flatten(1), logits_cmp.flatten(1), dim=1
         ).mean().item()
